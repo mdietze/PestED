@@ -76,7 +76,7 @@ SEM <- function(X,params,inputs,pest,timestep=1800){
   
   ###### respiration & allocation ########
 
-  ## maintainence respiration (priority #2) (umol/m2/tree)
+  ## maintainence respiration (priority #2) (umol/s/tree)
   GPP = GPP*10000/X[7]
   Rleaf = Rleaf*LAI*10000/X[7]
   Rstem = X[2]*arrhenius(params$Rstem,inputs$temp)
@@ -225,9 +225,9 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25){
   params$allomL0 = exp(-2.907)  ##Jenkins full database softwoods, Table 3
   params$allomL1 = 1.674
   ## plant respiration
-  params$Rleaf = 0.015*params$Vcmax
-  params$Rroot = 0.4
-  params$Rstem = 0.0005
+  params$Rleaf = 0.04*params$Vcmax
+  params$Rroot = 1.2
+  params$Rstem = 0.05
   params$Rg    = 0.33
   ## soil respiration
   params$Q10 = 2
@@ -235,7 +235,7 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25){
   ## turnover
   params$leafLitter = 0.33/365/86400*timestep
   params$CWD = 0.0001/365/86400*timestep
-  params$rootLitter = 0.33/365/86400*timestep
+  params$rootLitter = 1.0/365/86400*timestep
   ## mortality
   params$mort1 = 1
   params$mort2 = 20
@@ -286,8 +286,10 @@ for(t in 1:nt){
   if(X[7] == 0) break
 }
 
-varnames <- c("Bleaf","Bwood","Broot","Bstore","BSOM","Water","density","GPP","fopen","Rleaf","Rstem+Rroot","Rgrow")
+varnames <- c("Bleaf","Bwood","Broot","Bstore","BSOM","Water","density","GPP","fopen","Rleaf","RstemRroot","Rgrow")
 units <- c("kg/plant","kg/plant","kg/plant","kg/plant","Mg/ha","m","stems/ha")
+colnames(output) = varnames
+output = as.data.frame(output)
 for(i in 1:ncol(output)){
   if(i<=7){
     plot(output[,i],type='l',main=varnames[i],ylab=units[i])
@@ -301,7 +303,7 @@ L4 = read.csv("AMF_USMe2_2005_L4_h_V002.txt",header=TRUE,na.strings="-9999")
 L4[L4==-9999] = NA
 
 ## GPP: model and observed
-GPP = output[,8]*output[,7]/10000
+GPP = output[,8]*output[,7]/10000  ## convert back to umol/m2/sec to compart to tower
 plot(GPP,type='l')
 points(L4$GPP_st_MDS,pch=".",col=2)
 plot(GPP,L4$GPP_st_MDS,pch=".")
@@ -315,5 +317,18 @@ tod = sort(unique(L4$Hour))
 plot(tod,GPP.mod.diurnal,ylim=ylim,col=2,xlab="Time of Day",ylab='GPP',main="Diurnal Cycle",type='l',lwd=3)
 lines(tod,GPP.obs.diurnal,lwd=3)
 legend("topleft",legend=c("obs","mod"),col=1:2,pch=20,cex=0.75)
+
+## RA & NPP (umol/sec/tree)
+RA = output$Rleaf + output$RstemRroot + output$Rgrow
+NPP = output[,8] - RA
+mean(NPP)/mean(output[,8])
+Rplant = apply(output[,c("Rleaf","RstemRroot","Rgrow")],2,mean)
+Rplant/sum(Rplant)
+
+## woody increment
+DBH = (output$Bwood/params$allomB0)^(1/params$allomB1)  ## infer DBH from woody biomas
+plot(DBH)
+inc = DBH[length(DBH)]-DBH[1]
+inc
 
 }
