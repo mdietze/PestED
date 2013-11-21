@@ -63,7 +63,7 @@ SEM <- function(X,params,inputs,pest=c(0,0,0,1,0),timestep=1800){
                      params$g0,    ## cuticular conductance
                      inputs$VPD,
                      PARmid)
-    demand = max(Ags[2]*0.622*inputs$VPD/P*LAI*1e-6,1e-10)     ## transpiration without water limitation, umol/m2/s
+    demand = max(Ags[2]*0.622*inputs$VPD/P*LAI*1e6,1e-10)     ## transpiration without water limitation, umol/m2/s
     fopen = max(0,min(1,supply/demand))
     GPP = (Ags[1]+Rleaf)*fopen*LAI               # umol/m2/sec
     TRANSP = demand*fopen                        # umol/m2/sec
@@ -249,7 +249,7 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25){
   params$rootLitter = 1.0/365/86400*timestep
   ## mortality
   params$mort1 = 1
-  params$mort2 = 20
+  params$mort2 = 5
   params$NSCthreshold = 0.01
   ## NSC Allocation
   params$Lmin = 0.75
@@ -332,15 +332,24 @@ if(FALSE){
 default = iterate.SEM(c(0,0,0,1,0))
 plot.SEM(default)
 
-defol   = iterate.SEM(c(0,0,1,1,0))
+defol   = iterate.SEM(c(0,0,1,1,0))  ## assume a one-time 100% defoliation
 plot.SEM(defol)
 plot.SEM(default-defol)
+
+beetle  = iterate.SEM(c(0,0.8,0,1,0),years=4)  ## assume a 80% reduction in conductivity
+plot.SEM(beetle)
+plot.SEM(default-beetle)
+
+1-apply(default,2,min)/apply(default,2,max)
+1-apply(defol,2,min)/apply(defol,2,max)
 
 L4 = read.csv("AMF_USMe2_2005_L4_h_V002.txt",header=TRUE,na.strings="-9999")
 L4[L4==-9999] = NA
 
+default = as.data.frame(default)
+
 ## GPP: model and observed
-GPP = output[,8]*output[,7]/10000  ## convert back to umol/m2/sec to compart to tower
+GPP = default[,8]*default[,7]/10000  ## convert back to umol/m2/sec to compart to tower
 plot(GPP,type='l')
 points(L4$GPP_st_MDS,pch=".",col=2)
 plot(GPP,L4$GPP_st_MDS,pch=".")
@@ -356,14 +365,14 @@ lines(tod,GPP.obs.diurnal,lwd=3)
 legend("topleft",legend=c("obs","mod"),col=1:2,pch=20,cex=0.75)
 
 ## RA & NPP (umol/sec/tree)
-RA = output$Rleaf + output$RstemRroot + output$Rgrow
-NPP = output[,8] - RA
-mean(NPP)/mean(output[,8])
-Rplant = apply(output[,c("Rleaf","RstemRroot","Rgrow")],2,mean)
+RA = default$Rleaf + default$RstemRroot + default$Rgrow
+NPP = default[,8] - RA
+mean(NPP)/mean(default[,8])
+Rplant = apply(default[,c("Rleaf","RstemRroot","Rgrow")],2,mean)
 Rplant/sum(Rplant)
 
 ## woody increment
-DBH = (output$Bwood/params$allomB0)^(1/params$allomB1)  ## infer DBH from woody biomas
+DBH = (default$Bwood/params$allomB0)^(1/params$allomB1)  ## infer DBH from woody biomas
 plot(DBH)
 inc = DBH[length(DBH)]-DBH[1]
 inc
