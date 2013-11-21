@@ -5,12 +5,21 @@ ktree = 1e-6*12*1e-3   #mol/umol*gC/mol*kg/g -> kg/m2/sec
 kH2O = 1e-6*18*10^-6 #mol/umol*gH2O/mol*m/g
 P = 101.325 ## average atm pressure (kPa)
 
-## Simple Ecosystem Model
-## X = [leaf,wood,root,storage,som,SoilWater,stem density]
-## timestep is in seconds, defaults to 30 min
-## inputs: PAR, temp, VPD
-SEM <- function(X,params,inputs,pest,timestep=1800){ 
- 
+##' Simple Ecosystem Model
+##' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
+##' @param params
+##' @param timestep is in seconds, defaults to 30 min
+##' @param inputs: PAR, temp, VPD
+##' @param pest [phloem, xylem, leaf, root, stem]
+##' @author Michael C, Dietze <dietze@bu.edu>
+##' @return X 
+SEM <- function(X,params,inputs,pest=c(0,0,0,1,0),timestep=1800){ 
+  ## pest impacts:
+  ## phloem feaders: % tax flux of carbon out of (GPP-Rl) and into Bstore
+  ## xylem disrupters (bark beetle, canker, wilt, girdling): % decrease water supply 
+  ## defoliators: % foliage removed
+  ## root rot: factor accelleration of root turnover
+  ## stem rot: increase in background mortality
   
   ### Hydrology ###
   
@@ -24,12 +33,12 @@ SEM <- function(X,params,inputs,pest,timestep=1800){
   ## plant available water (trapazoidal response) (patch)
   paw = ifelse(X[6]>params$Wthresh,X[6]-0.5*params$Wthresh,
                0.5*X[6]*X[6]/params$Wthresh)
-  supply = params$Kroot*X[3]*paw*X[7] ## potential rate of water uptake, umol/m2Ground/s
+  supply = (1-pest[2])*params$Kroot*X[3]*paw*X[7] ## potential rate of water uptake, umol/m2Ground/s
     
   ### turnover (tree)  ###
-  leafLitter = X[1]*params$leafLitter
+  leafLitter = X[1]*min(1,params$leafLitter+pest[3])
   CWD        = X[2]*params$CWD
-  rootLitter = X[3]*params$rootLitter
+  rootLitter = X[3]*pest[4]*params$rootLitter
   X[1] = X[1] - leafLitter
   X[2] = X[2] - CWD
   X[3] = X[3] - rootLitter
@@ -84,7 +93,7 @@ SEM <- function(X,params,inputs,pest,timestep=1800){
   Rg = 0  ## growth respiration: kg per plant per timestep
   
   ## update storage for priorities 1 & 2 (kg/tree) 
-  X[4] = X[4] + (GPP - Rleaf - Rstem - Rroot)*ktree*timestep
+  X[4] = X[4] + ((1-pest[1])*(GPP - Rleaf) - Rstem - Rroot)*ktree*timestep
 
   ## calculate allometric potentials
   DBH = (X[2]/params$allomB0)^(1/params$allomB1)  ## infer DBH from woody biomas
@@ -97,15 +106,17 @@ SEM <- function(X,params,inputs,pest,timestep=1800){
   ## priority 3: only allocate if store above minimum  
   if(X[4] > Smin){
          
+    leafGrowMax = Lmax*params$Kleaf*2^(inputs$temp/10)  #thermal limit to growth
+    
     ## priority #4 mimimum leaf and root
     if(X[1] < Lmin){
-      leafAlloc = min(Lmin - X[1],(X[4]-Smin)/(1+params$Rg),0)
+      leafAlloc = max(min(Lmin - X[1],(X[4]-Smin)/(1+params$Rg),leafGrowMax),0)  #demand,supply
       X[1] = X[1] + leafAlloc
       X[4] = X[4] - leafAlloc*(1+params$Rg)
       Rg   = Rg   + leafAlloc*params$Rg
     }
     if(X[3] < Rmin){
-      rootAlloc = min(Lmin - X[1],(X[4]-Smin)/(1+params$Rg),0)
+      rootAlloc = max(min(Lmin - X[1],(X[4]-Smin)/(1+params$Rg)),0)
       X[3] = X[3] + rootAlloc
       X[4] = X[4] - rootAlloc*(1+params$Rg)
       Rg   = Rg   + rootAlloc*params$Rg
@@ -148,7 +159,7 @@ SEM <- function(X,params,inputs,pest,timestep=1800){
   if(X[4] <= params$NSCthreshold*Smax){
     X[7] = 0
   } else {
-    mortRate = params$mort1*exp(-params$mort2*X[4]/Smax)*timestep/86400/365
+    mortRate = (pest[5]+params$mort1*exp(-params$mort2*X[4]/Smax))*timestep/86400/365
     X[5] = X[5] + X[7]*mortRate*sum(X[1:4])/1000 ## dead trees go to SOM  
     X[7] = X[7]*(1-mortRate)  ## reduce density but not per-tree pools
   }
@@ -241,12 +252,13 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25){
   params$mort2 = 20
   params$NSCthreshold = 0.01
   ## NSC Allocation
-  params$Lmin = 0.25
+  params$Lmin = 0.75
   params$q    = 1
   params$StoreMinDay = 2
   params$Smax = 1
   params$Rfrac = 0.2
   params$SeedlingMort = 0.99
+  params$Kleaf = (1/21/48)/2^2.5  ## assumes it takes 21 days to regrow at 25C
   
 ## initialize state variables
 DBH = 10
@@ -275,29 +287,54 @@ if(!exists('inputs')){
   inputs = data.frame(PAR=PAR,temp=temp,VPD=VPD,precip=precip)    
 }
 
-if(FALSE){
-nt = length(time)*1
-output = array(NA,c(nt,12))
-for(t in 1:nt){
-  ti = (t-1) %% nrow(inputs) + 1  ## indexing to allow met to loop
-  output[t,]=SEM(X,params,inputs[ti,])
-  X = output[t,1:7]
-  if((t %% (48*7)) == 0) print(t/48) ## day counter
-  if(X[7] == 0) break
-}
-
 varnames <- c("Bleaf","Bwood","Broot","Bstore","BSOM","Water","density","GPP","fopen","Rleaf","RstemRroot","Rgrow")
 units <- c("kg/plant","kg/plant","kg/plant","kg/plant","Mg/ha","m","stems/ha")
-colnames(output) = varnames
-output = as.data.frame(output)
-for(i in 1:ncol(output)){
-  if(i<=7){
-    plot(output[,i],type='l',main=varnames[i],ylab=units[i])
-  }else{
-    plot(tapply(output[,i],rep(1:366,each=48)[1:nt],mean),main=varnames[i],type='l')
+
+iterate.SEM <- function(pest,t.start = 7000,years = 1){
+  
+  pest.orig = pest
+  pest = c(0,0,0,1,0)
+  nt = length(time)*years
+  output = array(NA,c(nt,12))
+  for(t in 1:nt){
+    ## turn pests on/off
+    if(t %in% t.start){
+      pest = pest.orig
+    } else {
+      pest[3]=0  ## defoliation turned off
+    }  
+    
+    ti = (t-1) %% nrow(inputs) + 1  ## indexing to allow met to loop
+    output[t,]=SEM(X,params,inputs[ti,],pest)
+    X = output[t,1:7]
+    if((t %% (48*7)) == 0) print(t/48) ## day counter
+    if(X[7] == 0) break
+  }
+  
+  colnames(output) = varnames
+  return(output)
+  
+} # end iterate.SEM
+
+plot.SEM <- function(output){
+  output = as.data.frame(output)
+  for(i in 1:ncol(output)){
+    if(i<=7){
+      plot(output[,i],type='l',main=varnames[i],ylab=units[i])
+    }else{
+      plot(tapply(output[,i],rep(1:366,each=48)[1:nrow(output)],mean),main=varnames[i],type='l')
+    }
   }
 }
 
+if(FALSE){
+  
+default = iterate.SEM(c(0,0,0,1,0))
+plot.SEM(default)
+
+defol   = iterate.SEM(c(0,0,1,1,0))
+plot.SEM(defol)
+plot.SEM(default-defol)
 
 L4 = read.csv("AMF_USMe2_2005_L4_h_V002.txt",header=TRUE,na.strings="-9999")
 L4[L4==-9999] = NA
