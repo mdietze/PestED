@@ -7,7 +7,7 @@ P <- 101.325 ## average atm pressure (kPa)
 
 ##' Simple Ecosystem Model
 ##' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
-##' @param params
+##' @param params params
 ##' @param timestep is in seconds, defaults to 30 min
 ##' @param inputs: PAR, temp, VPD
 ##' @param pest [phloem, xylem, leaf, root, stem]
@@ -32,7 +32,7 @@ SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800) {
 
   ## plant available water (trapazoidal response) (patch)
   paw <- ifelse(X[6] > params$Wthresh, X[6] - 0.5 * params$Wthresh,
-    0.5 * X[6] * X[6] / params$Wthresh
+                0.5 * X[6] * X[6] / params$Wthresh
   )
   supply <- (1 - pest[2]) * params$Kroot * X[3] * paw * X[7] ## potential rate of water uptake, umol/m2Ground/s
 
@@ -197,10 +197,10 @@ ballberry <- function(input, BBparams, Fparams, obs) {
 solve.FVcB <- function(Vcmax, Jmax, Rleaf, Gstar, alpha, m, g0, VPD, PAR) {
   Ca <- 400
   out <- optim(c(15, 0.1), # solve simultaneously for An.pred and gs.pred
-    ballberry,
-    BBparams = c(g0, m), # Ball-Berry params
-    Fparams = c(Vcmax, Jmax, Rleaf, Gstar, alpha), # Farquhar params
-    obs = c(Ca, VPD, PAR)
+               ballberry,
+               BBparams = c(g0, m), # Ball-Berry params
+               Fparams = c(Vcmax, Jmax, Rleaf, Gstar, alpha), # Farquhar params
+               obs = c(Ca, VPD, PAR)
   ) # data
   if (out$par[2] >= 0) {
     return(out$par)
@@ -214,168 +214,175 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25) {
 }
 
 
-### paramters
-timestep <- 1800 # seconds
-params <- list()
-## hydrology
-params$gevap <- 0.005 ## m2/s (Bonan p 201) [was 0.01, tuned]
-params$Wthresh <- 1
-params$Kroot <- 0.2 # umolH20*ha/(m3*kgRoot*s) -> uptake per kg root per m available water
-## photosynthesis
-R <- 8.3144621 ## ideal gas constant in J/K/mol
-Tleaf <- 298
-Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
-Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
-Km <- Kc * (1 + 210 / Ko)
-params$SLA <- 10
-params$alpha <- 0.8
-params$Vcmax <- 18
-params$Jmax <- params$Vcmax * 1.67
-params$m <- 4
-params$g0 <- 0
-## allometry
-params$allomB0 <- exp(-2.5355) / 0.8 ## Jenkins 2004, Pine, adj for BGB
-params$allomB1 <- 2.4349
-params$allomL0 <- exp(-2.907) ## Jenkins full database softwoods, Table 3
-params$allomL1 <- 1.674
-## plant respiration
-params$Rleaf <- 0.04 * params$Vcmax
-params$Rroot <- 1.2
-params$Rstem <- 0.05
-params$Rg <- 0.33
-## soil respiration
-params$Q10 <- 2
-params$Rbasal <- 0.2 / (params$Q10^2.5) # umol/m2/sec per Mg/ha of SOM
-## turnover
-params$leafLitter <- 0.33 / 365 / 86400 * timestep
-params$CWD <- 0.0001 / 365 / 86400 * timestep
-params$rootLitter <- 1.0 / 365 / 86400 * timestep
-## mortality
-params$mort1 <- 1
-params$mort2 <- 5
-params$NSCthreshold <- 0.01
-## NSC Allocation
-params$Lmin <- 0.75
-params$q <- 1
-params$StoreMinDay <- 2
-params$Smax <- 1
-params$Rfrac <- 0.2
-params$SeedlingMort <- 0.99
-params$Kleaf <- (1 / 21 / 48) / 2^2.5 ## assumes it takes 21 days to regrow at 25C
+#' main
+#'
+#' @return nothing
+#' @export
+#' @importFrom ncdf4 nc_open ncvar_get nc_close
+main <- function() {
 
-## initialize state variables
-DBH <- 10
-X <- rep(1, 7)
-X[1] <- X[3] <- X[4] <- params$allomL0 * DBH^params$allomL1
-X[2] <- params$allomB0 * DBH^params$allomB1
-X[5] <- 10
-X[7] <- 700
+  ### paramters
+  timestep <- 1800 # seconds
+  params <- list()
+  ## hydrology
+  params$gevap <- 0.005 ## m2/s (Bonan p 201) [was 0.01, tuned]
+  params$Wthresh <- 1
+  params$Kroot <- 0.2 # umolH20*ha/(m3*kgRoot*s) -> uptake per kg root per m available water
+  ## photosynthesis
+  R <- 8.3144621 ## ideal gas constant in J/K/mol
+  Tleaf <- 298
+  Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
+  Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
+  Km <- Kc * (1 + 210 / Ko)
+  params$SLA <- 10
+  params$alpha <- 0.8
+  params$Vcmax <- 18
+  params$Jmax <- params$Vcmax * 1.67
+  params$m <- 4
+  params$g0 <- 0
+  ## allometry
+  params$allomB0 <- exp(-2.5355) / 0.8 ## Jenkins 2004, Pine, adj for BGB
+  params$allomB1 <- 2.4349
+  params$allomL0 <- exp(-2.907) ## Jenkins full database softwoods, Table 3
+  params$allomL1 <- 1.674
+  ## plant respiration
+  params$Rleaf <- 0.04 * params$Vcmax
+  params$Rroot <- 1.2
+  params$Rstem <- 0.05
+  params$Rg <- 0.33
+  ## soil respiration
+  params$Q10 <- 2
+  params$Rbasal <- 0.2 / (params$Q10^2.5) # umol/m2/sec per Mg/ha of SOM
+  ## turnover
+  params$leafLitter <- 0.33 / 365 / 86400 * timestep
+  params$CWD <- 0.0001 / 365 / 86400 * timestep
+  params$rootLitter <- 1.0 / 365 / 86400 * timestep
+  ## mortality
+  params$mort1 <- 1
+  params$mort2 <- 5
+  params$NSCthreshold <- 0.01
+  ## NSC Allocation
+  params$Lmin <- 0.75
+  params$q <- 1
+  params$StoreMinDay <- 2
+  params$Smax <- 1
+  params$Rfrac <- 0.2
+  params$SeedlingMort <- 0.99
+  params$Kleaf <- (1 / 21 / 48) / 2^2.5 ## assumes it takes 21 days to regrow at 25C
+
+  ## initialize state variables
+  DBH <- 10
+  X <- rep(1, 7)
+  X[1] <- X[3] <- X[4] <- params$allomL0 * DBH^params$allomL1
+  X[2] <- params$allomB0 * DBH^params$allomB1
+  X[5] <- 10
+  X[7] <- 700
 
 
-if (!exists("inputs")) {
-  library(ncdf)
-  met <- open.ncdf("AMF_USMe2_2005_L2_GF_V006.nc")
-  print.ncdf(met)
-  PAR <- get.var.ncdf(met, "PAR")
-  for (i in which(PAR < -10)) {
-    PAR[i] <- PAR[i - 1]
-  } ## uber-naive gapfilling
-  temp <- get.var.ncdf(met, "TA")
-  VPD <- get.var.ncdf(met, "VPD")
-  precip <- get.var.ncdf(met, "PREC")
-  time <- get.var.ncdf(met, "DOY")
-  close.ncdf(met)
-  plot(PAR, type = "l")
-  plot(temp, type = "l")
-  plot(VPD, type = "l")
-  plot(precip, type = "l")
-  inputs <- data.frame(PAR = PAR, temp = temp, VPD = VPD, precip = precip)
-}
-
-varnames <- c("Bleaf", "Bwood", "Broot", "Bstore", "BSOM", "Water", "density", "GPP", "fopen", "Rleaf", "RstemRroot", "Rgrow")
-units <- c("kg/plant", "kg/plant", "kg/plant", "kg/plant", "Mg/ha", "m", "stems/ha")
-
-iterate.SEM <- function(pest, t.start = 7000, years = 1) {
-  pest.orig <- pest
-  pest <- c(0, 0, 0, 1, 0)
-  nt <- length(time) * years
-  output <- array(NA, c(nt, 12))
-  for (t in 1:nt) {
-    ## turn pests on/off
-    if (t %in% t.start) {
-      pest <- pest.orig
-    } else {
-      pest[3] <- 0 ## defoliation turned off
-    }
-
-    ti <- (t - 1) %% nrow(inputs) + 1 ## indexing to allow met to loop
-    output[t, ] <- SEM(X, params, inputs[ti, ], pest)
-    X <- output[t, 1:7]
-    if ((t %% (48 * 7)) == 0) print(t / 48) ## day counter
-    if (X[7] == 0) break
+  if (!exists("inputs")) {
+    met <- nc_open("AMF_USMe2_2005_L2_GF_V006.nc")
+    print(met)
+    PAR <- ncvar_get(met, "PAR")
+    for (i in which(PAR < -10)) {
+      PAR[i] <- PAR[i - 1]
+    } ## uber-naive gapfilling
+    temp <- ncvar_get(met, "TA")
+    VPD <- ncvar_get(met, "VPD")
+    precip <- ncvar_get(met, "PREC")
+    time <- ncvar_get(met, "DOY")
+    nc_close(met)
+    plot(PAR, type = "l")
+    plot(temp, type = "l")
+    plot(VPD, type = "l")
+    plot(precip, type = "l")
+    inputs <- data.frame(PAR = PAR, temp = temp, VPD = VPD, precip = precip)
   }
 
-  colnames(output) <- varnames
-  return(output)
-} # end iterate.SEM
+  varnames <- c("Bleaf", "Bwood", "Broot", "Bstore", "BSOM", "Water", "density", "GPP", "fopen", "Rleaf", "RstemRroot", "Rgrow")
+  units <- c("kg/plant", "kg/plant", "kg/plant", "kg/plant", "Mg/ha", "m", "stems/ha")
 
-plot.SEM <- function(output) {
-  output <- as.data.frame(output)
-  for (i in 1:ncol(output)) {
-    if (i <= 7) {
-      plot(output[, i], type = "l", main = varnames[i], ylab = units[i])
-    } else {
-      plot(tapply(output[, i], rep(1:366, each = 48)[1:nrow(output)], mean), main = varnames[i], type = "l")
+  iterate.SEM <- function(pest, t.start = 7000, years = 1) {
+    pest.orig <- pest
+    pest <- c(0, 0, 0, 1, 0)
+    nt <- length(time) * years
+    output <- array(NA, c(nt, 12))
+    for (t in 1:nt) {
+      ## turn pests on/off
+      if (t %in% t.start) {
+        pest <- pest.orig
+      } else {
+        pest[3] <- 0 ## defoliation turned off
+      }
+
+      ti <- (t - 1) %% nrow(inputs) + 1 ## indexing to allow met to loop
+      output[t, ] <- SEM(X, params, inputs[ti, ], pest)
+      X <- output[t, 1:7]
+      if ((t %% (48 * 7)) == 0) print(t / 48) ## day counter
+      if (X[7] == 0) break
+    }
+
+    colnames(output) <- varnames
+    return(output)
+  } # end iterate.SEM
+
+  plot.SEM <- function(output) {
+    output <- as.data.frame(output)
+    for (i in 1:ncol(output)) {
+      if (i <= 7) {
+        plot(output[, i], type = "l", main = varnames[i], ylab = units[i])
+      } else {
+        plot(tapply(output[, i], rep(1:366, each = 48)[1:nrow(output)], mean), main = varnames[i], type = "l")
+      }
     }
   }
-}
 
-if (FALSE) {
-  default <- iterate.SEM(c(0, 0, 0, 1, 0))
-  plot.SEM(default)
+  if (FALSE) {
+    default <- iterate.SEM(c(0, 0, 0, 1, 0))
+    plot.SEM(default)
 
-  defol <- iterate.SEM(c(0, 0, 1, 1, 0)) ## assume a one-time 100% defoliation
-  plot.SEM(defol)
-  plot.SEM(default - defol)
+    defol <- iterate.SEM(c(0, 0, 1, 1, 0)) ## assume a one-time 100% defoliation
+    plot.SEM(defol)
+    plot.SEM(default - defol)
 
-  beetle <- iterate.SEM(c(0, 0.8, 0, 1, 0), years = 4) ## assume a 80% reduction in conductivity
-  plot.SEM(beetle)
-  plot.SEM(default - beetle)
+    beetle <- iterate.SEM(c(0, 0.8, 0, 1, 0), years = 4) ## assume a 80% reduction in conductivity
+    plot.SEM(beetle)
+    plot.SEM(default - beetle)
 
-  1 - apply(default, 2, min) / apply(default, 2, max)
-  1 - apply(defol, 2, min) / apply(defol, 2, max)
+    1 - apply(default, 2, min) / apply(default, 2, max)
+    1 - apply(defol, 2, min) / apply(defol, 2, max)
 
-  L4 <- read.csv("AMF_USMe2_2005_L4_h_V002.txt", header = TRUE, na.strings = "-9999")
-  L4[L4 == -9999] <- NA
+    L4 <- read.csv("AMF_USMe2_2005_L4_h_V002.txt", header = TRUE, na.strings = "-9999")
+    L4[L4 == -9999] <- NA
 
-  default <- as.data.frame(default)
+    default <- as.data.frame(default)
 
-  ## GPP: model and observed
-  GPP <- default[, 8] * default[, 7] / 10000 ## convert back to umol/m2/sec to compart to tower
-  plot(GPP, type = "l")
-  points(L4$GPP_st_MDS, pch = ".", col = 2)
-  plot(GPP, L4$GPP_st_MDS, pch = ".")
-  mean(GPP) / mean(L4$GPP_st_MDS)
+    ## GPP: model and observed
+    GPP <- default[, 8] * default[, 7] / 10000 ## convert back to umol/m2/sec to compart to tower
+    plot(GPP, type = "l")
+    points(L4$GPP_st_MDS, pch = ".", col = 2)
+    plot(GPP, L4$GPP_st_MDS, pch = ".")
+    mean(GPP) / mean(L4$GPP_st_MDS)
 
-  ## GPP Diurnal
-  GPP.mod.diurnal <- tapply(GPP, L4$Hour, mean)
-  GPP.obs.diurnal <- tapply(L4$GPP_st_MDS, L4$Hour, mean)
-  ylim <- range(c(GPP.mod.diurnal, GPP.obs.diurnal))
-  tod <- sort(unique(L4$Hour))
-  plot(tod, GPP.mod.diurnal, ylim = ylim, col = 2, xlab = "Time of Day", ylab = "GPP", main = "Diurnal Cycle", type = "l", lwd = 3)
-  lines(tod, GPP.obs.diurnal, lwd = 3)
-  legend("topleft", legend = c("obs", "mod"), col = 1:2, pch = 20, cex = 0.75)
+    ## GPP Diurnal
+    GPP.mod.diurnal <- tapply(GPP, L4$Hour, mean)
+    GPP.obs.diurnal <- tapply(L4$GPP_st_MDS, L4$Hour, mean)
+    ylim <- range(c(GPP.mod.diurnal, GPP.obs.diurnal))
+    tod <- sort(unique(L4$Hour))
+    plot(tod, GPP.mod.diurnal, ylim = ylim, col = 2, xlab = "Time of Day", ylab = "GPP", main = "Diurnal Cycle", type = "l", lwd = 3)
+    lines(tod, GPP.obs.diurnal, lwd = 3)
+    legend("topleft", legend = c("obs", "mod"), col = 1:2, pch = 20, cex = 0.75)
 
-  ## RA & NPP (umol/sec/tree)
-  RA <- default$Rleaf + default$RstemRroot + default$Rgrow
-  NPP <- default[, 8] - RA
-  mean(NPP) / mean(default[, 8])
-  Rplant <- apply(default[, c("Rleaf", "RstemRroot", "Rgrow")], 2, mean)
-  Rplant / sum(Rplant)
+    ## RA & NPP (umol/sec/tree)
+    RA <- default$Rleaf + default$RstemRroot + default$Rgrow
+    NPP <- default[, 8] - RA
+    mean(NPP) / mean(default[, 8])
+    Rplant <- apply(default[, c("Rleaf", "RstemRroot", "Rgrow")], 2, mean)
+    Rplant / sum(Rplant)
 
-  ## woody increment
-  DBH <- (default$Bwood / params$allomB0)^(1 / params$allomB1) ## infer DBH from woody biomas
-  plot(DBH)
-  inc <- DBH[length(DBH)] - DBH[1]
-  inc
+    ## woody increment
+    DBH <- (default$Bwood / params$allomB0)^(1 / params$allomB1) ## infer DBH from woody biomas
+    plot(DBH)
+    inc <- DBH[length(DBH)] - DBH[1]
+    inc
+  }
 }
