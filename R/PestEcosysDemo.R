@@ -1,19 +1,22 @@
 
-## convert umol/m2/sec -> Mg/ha/sec
-k <- 1e-6 * 12 * 1e-6 * 10000 # mol/umol*gC/mol*Mg/g*m2/ha
-ktree <- 1e-6 * 12 * 1e-3 # mol/umol*gC/mol*kg/g -> kg/m2/sec
-kH2O <- 1e-6 * 18 * 10^-6 # mol/umol*gH2O/mol*m/g
-P <- 101.325 ## average atm pressure (kPa)
-
-##' Simple Ecosystem Model
-##' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
-##' @param params params
-##' @param timestep is in seconds, defaults to 30 min
-##' @param inputs: PAR, temp, VPD
-##' @param pest [phloem, xylem, leaf, root, stem]
-##' @author Michael C, Dietze <dietze@bu.edu>
-##' @return X
+#' Simple Ecosystem Model
+#' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
+#' @param params params
+#' @param timestep is in seconds, defaults to 30 min
+#' @param inputs: PAR, temp, VPD
+#' @param pest [phloem, xylem, leaf, root, stem]
+#' @author Michael C, Dietze <dietze@bu.edu>
+#' @return X
+#' @export
 SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800) {
+
+  # Define constants used to conver from unit A -> unit B
+  ## convert umol/m2/sec -> Mg/ha/sec
+  k <- 1e-6 * 12 * 1e-6 * 10000 # mol/umol*gC/mol*Mg/g*m2/ha
+  ktree <- 1e-6 * 12 * 1e-3 # mol/umol*gC/mol*kg/g -> kg/m2/sec
+  kH2O <- 1e-6 * 18 * 10^-6 # mol/umol*gH2O/mol*m/g
+  P <- 101.325 ## average atm pressure (kPa)
+
   ## pest impacts:
   ## phloem feaders: % tax flux of carbon out of (GPP-Rl) and into Bstore
   ## xylem disrupters (bark beetle, canker, wilt, girdling): % decrease water supply
