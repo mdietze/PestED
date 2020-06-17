@@ -9,7 +9,7 @@
 #' @author Michael C, Dietze <dietze@bu.edu>
 #' @return X
 #' @export
-SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800) {
+SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
 
   # Check the parameter inputs
   extra_params <- which(!names(params) %in% names(default_parameters))
@@ -183,14 +183,6 @@ SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800) {
 ## Farquhar-Ball Berry Optimization Functions
 farquhar <- function(Ci, Fparams, I) {
 
-  ## photosynthesis related constants.
-  R <- 8.3144621 ## ideal gas constant in J/K/mol
-  Tleaf <- 298
-  Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
-  Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
-  Km <- Kc * (1 + 210 / Ko)
-
-
   a <- 0.9 ## curvature parameter
   b <- -(Fparams[5] * I + Fparams[2])
   c <- Fparams[5] * I * Fparams[2]
@@ -202,13 +194,6 @@ farquhar <- function(Ci, Fparams, I) {
 
 ballberry <- function(input, BBparams, Fparams, obs) {
 
-  ## photosynthesis related constants.
-  R <- 8.3144621 ## ideal gas constant in J/K/mol
-  Tleaf <- 298
-  Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
-  Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
-  Km <- Kc * (1 + 210 / Ko)
-
   ## is actually the Medlyn et al 2011 model
   Ci <- obs[1] - 1.6 * input[1] / input[2]
   e1 <- (farquhar(Ci, Fparams, obs[3]) - input[1])
@@ -218,14 +203,6 @@ ballberry <- function(input, BBparams, Fparams, obs) {
 }
 
 solve.FVcB <- function(Vcmax, Jmax, Rleaf, Gstar, alpha, m, g0, VPD, PAR) {
-
-  ## photosynthesis related constants.
-  R <- 8.3144621 ## ideal gas constant in J/K/mol
-  Tleaf <- 298
-  Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
-  Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
-  Km <- Kc * (1 + 210 / Ko)
-
 
   Ca <- 400
   out <- stats::optim(c(15, 0.1), # solve simultaneously for An.pred and gs.pred
@@ -243,4 +220,88 @@ solve.FVcB <- function(Vcmax, Jmax, Rleaf, Gstar, alpha, m, g0, VPD, PAR) {
 
 arrhenius <- function(observed.value, new.temp, old.temp = 25) {
   return(observed.value / exp(3000 * (1 / (273.15 + new.temp) - 1 / (273.15 + old.temp))))
+}
+
+
+
+#' Solve SEM
+#'
+#' @param pest [phloem, xylem, leaf, root, stem] a vector of pest impacts, each entry in the vector
+#' represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.
+#' @param inputs the data.frame object returned by \code{format_inputs}
+#' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
+#' @param params a list of parameters, the default is set to the default parameters
+#' @param t.start documenation needed
+#' @param years documentation needed
+#' @export
+# TODO figure out what is going on with the time index and how to suppress the printed output
+iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 7000, years = 1) {
+
+  ### paramters
+  timestep <- 1800 # seconds
+  time <- inputs$time
+
+  # Check the parameter inputs
+  extra_params <- which(!names(params) %in% names(default_parameters))
+  msg_params   <- paste(names(params)[extra_params], collapse = ', ')
+  assertthat::assert_that(length(extra_params) == 0, msg = paste0('params contains unknown parameters: ', msg_params))
+  missing_params <- which(!names(default_parameters) %in% names(params))
+  msg_params <- paste(names(params)[missing_params], collapse = ', ')
+  assertthat::assert_that(length(missing_params) == 0, msg = paste0('params is missing the following: ', msg_params))
+
+  ## photosynthesis related constants.
+  R <- 8.3144621 ## ideal gas constant in J/K/mol
+  Tleaf <- 298
+  Kc <- 404.9 * exp(79430 * (Tleaf - 298) / (298 * R * Tleaf))
+  Ko <- 278.4 * exp(36380 * (Tleaf - 298) / (298 * R * Tleaf))
+  Km <- Kc * (1 + 210 / Ko)
+
+  # For some reason there  variables must be assigned in the global
+  # environment.
+  # TODO figure out a better way to deal with this.
+  assign('R', 8.3144621, envir = .GlobalEnv)
+  assign('Km',  Kc * (1 + 210 / Ko), envir = .GlobalEnv)
+
+  # Format the time vector and check the inputs.
+  require_names <- c("time", "PAR", "temp", "VPD",  "precip")
+  missing_names <- which(!require_names %in% names(inputs))
+  msg <-  paste0('inputs is missing following columns: ', paste(require_names[missing_names], collapse = ', '))
+  assertthat::assert_that(length(missing_names) == 0, msg = msg)
+
+  ## initialize state variables
+  DBH <- 10
+  X <- rep(1, 7)
+  X[1] <- X[3] <- X[4] <- params$allomL0 * DBH^params$allomL1
+  X[2] <- params$allomB0 * DBH^params$allomB1
+  X[5] <- 10
+  X[7] <- 700
+
+
+  varnames <- c("Bleaf", "Bwood", "Broot", "Bstore", "BSOM", "Water", "density", "GPP", "fopen", "Rleaf", "RstemRroot", "Rgrow")
+  units <- c("kg/plant", "kg/plant", "kg/plant", "kg/plant", "Mg/ha", "m", "stems/ha")
+
+
+  pest.orig <- pest
+  pest <- c(0, 0, 0, 1, 0)
+  nt <- length(time) * years
+  output <- array(NA, c(nt, 12))
+  for (t in 1:nt) {
+    ## turn pests on/off
+    if (t %in% t.start) {
+      pest <- pest.orig
+    } else {
+      pest[3] <- 0 ## defoliation turned off
+    }
+
+    ti <- (t - 1) %% nrow(inputs) + 1 ## indexing to allow met to loop
+    output[t, ] <- SEM(X, params, inputs[ti, ], pest)
+    X <- output[t, 1:7]
+    if ((t %% (48 * 7)) == 0) print(t / 48) ## day counter
+    if (X[7] == 0) break
+  }
+
+  colnames(output) <- varnames
+  output <- as.data.frame(output)
+  names(output) <- varnames
+  return(output)
 }
