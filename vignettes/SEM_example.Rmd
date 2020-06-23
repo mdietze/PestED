@@ -1,0 +1,66 @@
+---
+title: "SEM Example Runs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{SEM Example Runs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Install PestED 
+
+```{r setup}
+library(PestED)
+
+timestep <- 1800 # TODO I am unsure as to what is going on here, timestep does not have to be 
+# defined in the unit tests. 
+```
+
+
+```{r}
+# Define the path to the netcdf file containing the meteorology inputs.
+nc_path <- system.file('extdata/AMF_USMe2_2005_L2_GF_V006.nc', package = 'PestED') 
+
+# Format the inputs into the SEM required format. 
+met_inputs <- format_inputs(nc_path)
+```
+
+
+Now that the inputs are set up let's run SEM. 
+```{r}
+baseline <- iterate.SEM(pest = c(0, 0, 0, 0, 0), #  Disturb none of the carbon pools. 
+            inputs = met_inputs, # Read in the met inputs. 
+            params = PestED::default_parameters, # the list of default parameters is saved as package data. 
+            years = .5) # the number of years to run SEM for. 
+```
+
+Let's take a quick  look at the results. 
+```{r, fig.width=6, fig.height=6}
+plot(baseline$GPP, ylab = 'GPP', main = 'Baseline SEM', type = 'l')
+```
+
+What happens when we divide Vcmax in half? 
+
+```{r}
+new_params <- PestED::default_parameters
+new_params$Vcmax <- PestED::default_parameters$Vcmax / 2
+
+run2 <- iterate.SEM(pest = c(0, 0, 0, 0, 0), #  Disturb none of the carbon pools. 
+            inputs = met_inputs, # Read in the met inputs. 
+            params = new_params, # the list of default parameters is saved as package data. 
+            years = .5) # the number of years to run SEM for. 
+```
+
+Compare the GPP of the two  runs. 
+```{r}
+summary(baseline$GPP)
+summary(run2$GPP)
+```
+ Tada they are different from one another! 

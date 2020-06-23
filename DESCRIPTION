@@ -17,3 +17,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.0.2
 BugReports: https://github.com/FoRTExperiment/PestED/issues
 URL: https://github.com/FoRTExperiment/PestED/
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
