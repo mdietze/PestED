@@ -1,4 +1,4 @@
-# Make a list of the default parameters from Dietz et al. paper.
+# Make a list of the default parameters from Dietze et al. paper.
 
 timestep <- 1800 # seconds
 
