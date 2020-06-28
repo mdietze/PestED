@@ -9,7 +9,7 @@
 #' @author Michael C, Dietze <dietze@bu.edu>
 #' @return X
 #' @export
-SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
+SEM <- function(X, params, timestep, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
 
   # Check the parameter inputs
   extra_params <- which(!names(params) %in% names(default_parameters))
@@ -231,11 +231,11 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25) {
 #' @param inputs the data.frame object returned by \code{format_inputs}
 #' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
 #' @param params a list of parameters, the default is set to the default parameters
+#' @param timestep timestep
 #' @param t.start documenation needed
 #' @param years documentation needed
 #' @export
-# TODO figure out what is going on with the time index and how to suppress the printed output
-iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 7000, years = 1) {
+iterate.SEM <- function(pest, inputs, params = default_parameters, timestep, t.start = 7000, years = 1) {
 
   ### paramters
   timestep <- 1800 # seconds
@@ -294,9 +294,13 @@ iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 700
     }
 
     ti <- (t - 1) %% nrow(inputs) + 1 ## indexing to allow met to loop
-    output[t, ] <- SEM(X, params, inputs[ti, ], pest)
+    output[t, ] <- SEM(X,
+                       params,
+                       timestep = timestep,
+                       inputs = inputs[ti, ],
+                       pest = pest)
     X <- output[t, 1:7]
-    if ((t %% (48 * 7)) == 0) print(t / 48) ## day counter
+    if ((t %% (48 * 7)) == 0) message(t / 48) ## day counter
     if (X[7] == 0) break
   }
 

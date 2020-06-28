@@ -18,9 +18,6 @@ Install PestED
 
 ```{r setup}
 library(PestED)
-
-timestep <- 1800 # TODO I am unsure as to what is going on here, timestep does not have to be 
-# defined in the unit tests. 
 ```
 
 

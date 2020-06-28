@@ -8,6 +8,7 @@ iterate.SEM(
   pest,
   inputs,
   params = default_parameters,
+  timestep,
   t.start = 7000,
   years = 1
 )
@@ -19,6 +20,8 @@ represents the percent change in thepholme, yxlem, leaf, root, and stem based on
 \item{inputs}{the data.frame object returned by \code{format_inputs}}
 
 \item{params}{a list of parameters, the default is set to the default parameters}
+
+\item{timestep}{timestep}
 
 \item{t.start}{documenation needed}
 

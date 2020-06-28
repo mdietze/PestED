@@ -4,19 +4,19 @@
 \alias{SEM}
 \title{Simple Ecosystem Model}
 \usage{
-SEM(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800)
+SEM(X, params, timestep, inputs, pest = c(0, 0, 0, 1, 0), p = 1800)
 
-SEM(X, params, inputs, pest = c(0, 0, 0, 1, 0), timestep = 1800)
+SEM(X, params, timestep, inputs, pest = c(0, 0, 0, 1, 0), p = 1800)
 }
 \arguments{
 \item{X}{= \link{leaf,wood,root,storage,som,SoilWater,stem density}}
 
 \item{params}{params}
 
+\item{timestep}{is in seconds, defaults to 30 min}
+
 \item{pest}{\link{phloem, xylem, leaf, root, stem} a vector of pest impacts, each entry in the vector
 represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.}
-
-\item{timestep}{is in seconds, defaults to 30 min}
 
 \item{inputs:}{PAR, temp, VPD}
 }
