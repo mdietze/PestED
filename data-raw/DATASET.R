@@ -45,5 +45,3 @@ params$Kleaf <- (1 / 21 / 48) / 2^2.5 ## assumes it takes 21 days to regrow at 2
 
 default_parameters <- params
 usethis::use_data(default_parameters, overwrite = TRUE)
-
-
