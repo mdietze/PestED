@@ -3,3 +3,4 @@
 export(SEM)
 export(format_inputs)
 export(iterate.SEM)
+importFrom(assertthat,assert_that)

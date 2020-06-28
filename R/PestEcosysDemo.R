@@ -1,9 +1,9 @@
 
 #' Simple Ecosystem Model
-#' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
+#' @param X array [leaf,wood,root,storage,som,SoilWater,stem density]
 #' @param params params
 #' @param timestep is in seconds, defaults to 30 min
-#' @param inputs: PAR, temp, VPD
+#' @param inputs PAR, temp, VPD
 #' @param pest [phloem, xylem, leaf, root, stem] a vector of pest impacts, each entry in the vector
 #' represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.
 #' @author Michael C, Dietze <dietze@bu.edu>

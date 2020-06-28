@@ -9,7 +9,7 @@ test_that("iterate.SEM", {
   suppressMessages({
     xx  <- iterate.SEM(pest = c(0, 0, 0, 0, 0),
                        inputs = x,
-                       params = default_parameters,
+                       params = PestED::default_parameters,
                        timestep = 1800,
                        years = 1)
   })

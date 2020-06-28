@@ -4,17 +4,10 @@
 \alias{iterate.SEM}
 \title{Solve SEM}
 \usage{
-iterate.SEM(
-  pest,
-  inputs,
-  params = default_parameters,
-  timestep,
-  t.start = 7000,
-  years = 1
-)
+iterate.SEM(pest, inputs, params, timestep, t.start = 7000, years = 1)
 }
 \arguments{
-\item{pest}{\link{phloem, xylem, leaf, root, stem} a vector of pest impacts, each entry in the vector
+\item{pest}{array \link{phloem, xylem, leaf, root, stem} a vector of pest impacts, each entry in the vector
 represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.}
 
 \item{inputs}{the data.frame object returned by \code{format_inputs}}
@@ -26,8 +19,6 @@ represents the percent change in thepholme, yxlem, leaf, root, and stem based on
 \item{t.start}{documenation needed}
 
 \item{years}{documentation needed}
-
-\item{X}{= \link{leaf,wood,root,storage,som,SoilWater,stem density}}
 }
 \description{
 Solve SEM
