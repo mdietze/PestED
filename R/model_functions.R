@@ -1,23 +1,27 @@
 
 #' Simple Ecosystem Model
-#' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
+#' @param X array [leaf,wood,root,storage,som,SoilWater,stem density]
 #' @param params params
 #' @param timestep is in seconds, defaults to 30 min
-#' @param inputs: PAR, temp, VPD
+#' @param inputs PAR, temp, VPD
 #' @param pest [phloem, xylem, leaf, root, stem] a vector of pest impacts, each entry in the vector
 #' represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.
+#' @param p p
 #' @author Michael C, Dietze <dietze@bu.edu>
+#' @importFrom assertthat assert_that
 #' @return X
 #' @export
-SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
+SEM <- function(X, params, timestep, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
+
+  default_parameters <- PestED::default_parameters
 
   # Check the parameter inputs
   extra_params <- which(!names(params) %in% names(default_parameters))
   msg_params   <- paste(names(params)[extra_params], collapse = ', ')
-  assertthat::assert_that(length(extra_params) == 0, msg = paste0('params contains unknown parameters: ', msg_params))
+  assert_that(length(extra_params) == 0, msg = paste0('params contains unknown parameters: ', msg_params))
   missing_params <- which(!names(default_parameters) %in% names(params))
   msg_params <- paste(names(params)[missing_params], collapse = ', ')
-  assertthat::assert_that(length(missing_params) == 0, msg = paste0('params is missing the following: ', msg_params))
+  assert_that(length(missing_params) == 0, msg = paste0('params is missing the following: ', msg_params))
 
   # Define constants used to conver from unit A -> unit B
   ## convert umol/m2/sec -> Mg/ha/sec
@@ -48,7 +52,6 @@ SEM <- function(X, params, inputs, pest = c(0, 0, 0, 1, 0), p = 1800) {
   X[1] <- X[1] - leafLitter
   X[2] <- X[2] - CWD
   X[3] <- X[3] - rootLitter
-
 
   ## Leaf Respiration (m2 leaf)
   Rleaf <- arrhenius(params$Rleaf, inputs$temp) # umol/m2/sec
@@ -226,16 +229,17 @@ arrhenius <- function(observed.value, new.temp, old.temp = 25) {
 
 #' Solve SEM
 #'
-#' @param pest [phloem, xylem, leaf, root, stem] a vector of pest impacts, each entry in the vector
+#' @param pest array [phloem, xylem, leaf, root, stem] a vector of pest impacts, each entry in the vector
 #' represents the percent change in thepholme, yxlem, leaf, root, and stem based on the type of disruption.
 #' @param inputs the data.frame object returned by \code{format_inputs}
-#' @param X = [leaf,wood,root,storage,som,SoilWater,stem density]
 #' @param params a list of parameters, the default is set to the default parameters
+#' @param timestep timestep
 #' @param t.start documenation needed
 #' @param years documentation needed
 #' @export
-# TODO figure out what is going on with the time index and how to suppress the printed output
-iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 7000, years = 1) {
+iterate.SEM <- function(pest, inputs, params, timestep, t.start = 7000, years = 1) {
+
+  default_parameters <- PestED::default_parameters
 
   ### paramters
   timestep <- 1800 # seconds
@@ -244,10 +248,10 @@ iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 700
   # Check the parameter inputs
   extra_params <- which(!names(params) %in% names(default_parameters))
   msg_params   <- paste(names(params)[extra_params], collapse = ', ')
-  assertthat::assert_that(length(extra_params) == 0, msg = paste0('params contains unknown parameters: ', msg_params))
+  assert_that(length(extra_params) == 0, msg = paste0('params contains unknown parameters: ', msg_params))
   missing_params <- which(!names(default_parameters) %in% names(params))
   msg_params <- paste(names(params)[missing_params], collapse = ', ')
-  assertthat::assert_that(length(missing_params) == 0, msg = paste0('params is missing the following: ', msg_params))
+  assert_that(length(missing_params) == 0, msg = paste0('params is missing the following: ', msg_params))
 
   ## photosynthesis related constants.
   R <- 8.3144621 ## ideal gas constant in J/K/mol
@@ -266,7 +270,7 @@ iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 700
   require_names <- c("time", "PAR", "temp", "VPD",  "precip")
   missing_names <- which(!require_names %in% names(inputs))
   msg <-  paste0('inputs is missing following columns: ', paste(require_names[missing_names], collapse = ', '))
-  assertthat::assert_that(length(missing_names) == 0, msg = msg)
+  assert_that(length(missing_names) == 0, msg = msg)
 
   ## initialize state variables
   DBH <- 10
@@ -294,9 +298,13 @@ iterate.SEM <- function(pest, inputs, params = default_parameters, t.start = 700
     }
 
     ti <- (t - 1) %% nrow(inputs) + 1 ## indexing to allow met to loop
-    output[t, ] <- SEM(X, params, inputs[ti, ], pest)
+    output[t, ] <- SEM(X,
+                       params,
+                       timestep = timestep,
+                       inputs = inputs[ti, ],
+                       pest = pest)
     X <- output[t, 1:7]
-    if ((t %% (48 * 7)) == 0) print(t / 48) ## day counter
+    if ((t %% (48 * 7)) == 0) message(t / 48) ## day counter
     if (X[7] == 0) break
   }
 

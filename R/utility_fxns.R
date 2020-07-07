@@ -1,3 +1,8 @@
+
+#' format_inputs
+#'
+#' @param nc_path Path to nc file
+#' @return something
 #' @export
 format_inputs <- function(nc_path){
 
